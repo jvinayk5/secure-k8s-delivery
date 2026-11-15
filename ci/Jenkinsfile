@@ -1,0 +1,119 @@
+// Declarative CI pipeline: test -> coverage -> SAST -> SCA -> quality gate
+//                          -> build -> image scan -> push -> GitOps tag bump.
+// Parameterised so one pipeline serves both the Node.js and Spring Boot services.
+pipeline {
+  agent { label 'docker' }
+
+  parameters {
+    choice(name: 'SERVICE', choices: ['node-service', 'spring-service'], description: 'Service to build')
+    choice(name: 'TARGET_ENV', choices: ['dev', 'qa', 'uat', 'prod'], description: 'Environment to promote to (branch-aware default below)')
+  }
+
+  environment {
+    REGISTRY   = "${env.REGISTRY_HOST}"                  // set as a global Jenkins env var, e.g. <account>.dkr.ecr.<region>.amazonaws.com
+    IMAGE      = "${REGISTRY}/${params.SERVICE}"
+    VERSION    = "${env.BRANCH_NAME.replaceAll('[^a-zA-Z0-9._-]', '-')}-${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
+    SERVICE_DIR = "apps/${params.SERVICE}"
+  }
+
+  options {
+    timeout(time: 30, unit: 'MINUTES')
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+    timestamps()
+  }
+
+  stages {
+    stage('Unit tests + coverage') {
+      steps {
+        dir(env.SERVICE_DIR) {
+          script {
+            if (params.SERVICE == 'node-service') {
+              sh 'npm test'
+            } else {
+              sh 'mvn -B verify'          // runs tests + JaCoCo report
+            }
+          }
+        }
+      }
+    }
+
+    stage('SAST - SonarQube') {
+      steps {
+        dir(env.SERVICE_DIR) {
+          withSonarQubeEnv('sonarqube') {
+            sh "sonar-scanner -Dproject.settings=../../ci/sonar-project.properties -Dsonar.projectKey=${params.SERVICE} -Dsonar.projectVersion=${VERSION}"
+          }
+        }
+      }
+    }
+
+    stage('Quality gate') {
+      steps {
+        timeout(time: 10, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: true
+        }
+      }
+    }
+
+    stage('SCA - OWASP Dependency-Check') {
+      steps {
+        dir(env.SERVICE_DIR) {
+          dependencyCheck additionalArguments: '--scan . --format HTML --format JSON --failOnCVSS 9', odcInstallation: 'dependency-check'
+          dependencyCheckPublisher pattern: 'dependency-check-report.json'
+        }
+      }
+    }
+
+    stage('Build image') {
+      steps {
+        sh """
+          docker build -t ${IMAGE}:${VERSION} \
+            --build-arg APP_VERSION=${VERSION} \
+            ${SERVICE_DIR}
+        """
+      }
+    }
+
+    stage('Image scan - Trivy') {
+      steps {
+        // Fail the build on HIGH/CRITICAL vulnerabilities that have a fix available.
+        sh """
+          trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed \
+            --ignorefile ci/trivy/.trivyignore ${IMAGE}:${VERSION}
+        """
+        sh "trivy image --format cyclonedx --output sbom-${params.SERVICE}.json ${IMAGE}:${VERSION}"
+        archiveArtifacts artifacts: "sbom-${params.SERVICE}.json", fingerprint: true
+      }
+    }
+
+    stage('Push image') {
+      when { anyOf { branch 'main'; branch 'release/*'; branch 'develop' } }
+      steps {
+        sh "docker push ${IMAGE}:${VERSION}"
+      }
+    }
+
+    stage('GitOps promote') {
+      when { anyOf { branch 'main'; branch 'release/*'; branch 'develop' } }
+      steps {
+        // CD is not done from Jenkins: it only commits the new image tag; ArgoCD syncs it.
+        sh "ci/promote.sh ${params.SERVICE} ${targetEnv()} ${VERSION}"
+      }
+    }
+  }
+
+  post {
+    always { sh "docker rmi ${IMAGE}:${VERSION} || true" }
+    failure { echo 'Pipeline failed - see stage logs. No image was promoted.' }
+  }
+}
+
+// Branch-aware environment mapping: develop -> dev, release/* -> qa, main -> uat.
+// Production is promoted only by an explicit, approved parameter on main.
+def targetEnv() {
+  if (env.BRANCH_NAME == 'develop') return 'dev'
+  if (env.BRANCH_NAME.startsWith('release/')) return 'qa'
+  if (env.BRANCH_NAME == 'main') return params.TARGET_ENV in ['uat', 'prod'] ? params.TARGET_ENV : 'uat'
+  return 'dev'
+}

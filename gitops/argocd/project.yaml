@@ -1,0 +1,12 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: microservices
+  namespace: argocd
+spec:
+  description: Microservices delivered through the secure pipeline
+  sourceRepos:
+    - https://github.com/jvinayk5/secure-k8s-delivery.git
+  destinations:
+    - { namespace: 'svc-*', server: https://kubernetes.default.svc }
+  clusterResourceWhitelist: []

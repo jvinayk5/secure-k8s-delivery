@@ -1,0 +1,35 @@
+# Defaults shared by every environment. Per-environment files override these.
+name: node-service
+image:
+  repository: registry.example.com/node-service
+  tag: "latest"          # overwritten by ci/promote.sh
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+containerPort: 8080
+
+# rolling | bluegreen
+strategy: rolling
+
+env:
+  APP_ENV: dev
+
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits:   { cpu: 500m, memory: 256Mi }
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  allowFromNamespaces: [ingress]
+
+probes:
+  path: /healthz

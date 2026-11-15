@@ -1,0 +1,6 @@
+env: { APP_ENV: uat }
+replicaCount: 2
+strategy: bluegreen
+image:
+  # service: node-service
+  tag: "uat"

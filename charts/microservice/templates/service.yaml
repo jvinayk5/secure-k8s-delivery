@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}
+  labels: {{- include "ms.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: {{ .Values.name }} }
+  ports:
+    - { port: 80, targetPort: {{ .Values.containerPort }} }
+{{- if eq .Values.strategy "bluegreen" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}-preview
+  labels: {{- include "ms.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: {{ .Values.name }} }
+  ports:
+    - { port: 80, targetPort: {{ .Values.containerPort }} }
+{{- end }}

@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  node-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+        working-directory: apps/node-service
+
+  spring-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - run: mvn -B verify
+        working-directory: apps/spring-service
+
+  dockerfile-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: apps/node-service/Dockerfile
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: apps/spring-service/Dockerfile
+
+  image-scan:
+    runs-on: ubuntu-latest
+    needs: [node-service]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build base + app image
+        run: |
+          docker build -t node-base:ci images/node-base
+          docker build -t node-service:ci --build-arg BASE_IMAGE=node-base:ci apps/node-service
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: node-service:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+  helm-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: |
+          for env in dev qa uat prod; do
+            helm lint charts/microservice -f charts/microservice/values-$env.yaml
+            helm template demo charts/microservice -f charts/microservice/values-$env.yaml > /dev/null
+          done

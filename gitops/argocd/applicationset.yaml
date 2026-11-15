@@ -1,0 +1,40 @@
+# One Application per environment, generated from a list.
+# dev/qa auto-sync; uat/prod require a manual sync (approval gate).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: node-service
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - { env: dev,  autoSync: 'true' }
+          - { env: qa,   autoSync: 'true' }
+          - { env: uat,  autoSync: 'false' }
+          - { env: prod, autoSync: 'false' }
+  template:
+    metadata:
+      name: 'node-service-{{env}}'
+    spec:
+      project: microservices
+      source:
+        repoURL: https://github.com/jvinayk5/secure-k8s-delivery.git
+        targetRevision: main
+        path: charts/microservice
+        helm:
+          valueFiles:
+            - 'values-{{env}}.yaml'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'svc-{{env}}'
+      syncPolicy:
+        syncOptions: [CreateNamespace=true]
+  templatePatch: |
+    {{- if eq .autoSync "true" }}
+    spec:
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+    {{- end }}

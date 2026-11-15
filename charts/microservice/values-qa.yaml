@@ -1,0 +1,6 @@
+env: { APP_ENV: qa }
+replicaCount: 2
+strategy: rolling
+image:
+  # service: node-service
+  tag: "qa"

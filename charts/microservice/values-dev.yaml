@@ -1,0 +1,8 @@
+env: { APP_ENV: dev }
+replicaCount: 1
+autoscaling: { enabled: false }
+pdb: { minAvailable: 0 }
+strategy: rolling
+image:
+  # service: node-service
+  tag: "dev"

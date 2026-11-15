@@ -1,0 +1,28 @@
+# SRE-style alerts for CI/CD build agents. Requires node_exporter on agents.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: jenkins-agent-capacity
+  namespace: monitoring
+spec:
+  groups:
+    - name: jenkins-agents
+      rules:
+        - alert: JenkinsAgentCPUHigh
+          expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",role="jenkins-agent"}[5m])) * 100) > 80
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: "Agent {{ $labels.instance }} CPU above 80% for 10m - scale out"
+        - alert: JenkinsAgentMemoryHigh
+          expr: (1 - node_memory_MemAvailable_bytes{role="jenkins-agent"} / node_memory_MemTotal_bytes{role="jenkins-agent"}) * 100 > 80
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: "Agent {{ $labels.instance }} memory above 80% for 10m"
+        - alert: JenkinsAgentDiskHigh
+          expr: (1 - node_filesystem_avail_bytes{role="jenkins-agent",mountpoint="/"} / node_filesystem_size_bytes{role="jenkins-agent",mountpoint="/"}) * 100 > 80
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: "Agent {{ $labels.instance }} disk above 80% - clean workspaces or scale"

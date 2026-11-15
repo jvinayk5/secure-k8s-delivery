@@ -1,0 +1,3 @@
+# Accepted risks only. Each entry needs: CVE id, reason, owner, expiry date.
+# Example:
+# CVE-0000-00000  # no upstream fix, not reachable (internal only) - owner: platform - expires 2026-12-31

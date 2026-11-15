@@ -1,0 +1,20 @@
+{{- if .Values.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Values.name }}
+spec:
+  scaleTargetRef:
+    apiVersion: {{ ternary "argoproj.io/v1alpha1" "apps/v1" (eq .Values.strategy "bluegreen") }}
+    kind: {{ ternary "Rollout" "Deployment" (eq .Values.strategy "bluegreen") }}
+    name: {{ .Values.name }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
