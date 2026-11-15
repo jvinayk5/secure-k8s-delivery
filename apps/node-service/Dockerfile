@@ -4,7 +4,7 @@ ARG BASE_IMAGE=node-base:latest
 FROM node:22.11-alpine3.20 AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
+RUN mkdir -p node_modules && (npm ci --omit=dev 2>/dev/null || npm install --omit=dev)
 
 # hadolint ignore=DL3006
 FROM ${BASE_IMAGE}
