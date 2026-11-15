@@ -47,7 +47,7 @@ Jenkins never deploys. It only builds, verifies and commits a new image tag; Arg
 ## What is demonstrated
 
 **Standardised containers** (`images/`, `apps/*/Dockerfile`)
-- Reusable platform base images for Node.js and Java: pinned versions, non-root user, `tini` as PID 1, JRE-only runtime.
+- Reusable platform base images for Node.js and Java: supported LTS bases with OS packages patched at build time, non-root user, `tini` as PID 1, JRE-only runtime.
 - Multi-stage application images that build on the platform base, so patching a base image fixes every service on rebuild.
 
 **Security-gated CI** (`ci/Jenkinsfile`, `.github/workflows/ci.yml`)

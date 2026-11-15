@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 ARG BASE_IMAGE=node-base:latest
 
-FROM node:22.11-alpine3.20 AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN mkdir -p node_modules && (npm ci --omit=dev 2>/dev/null || npm install --omit=dev)

@@ -1,8 +1,10 @@
 # Platform base image for Spring Boot services.
-# JRE only (no JDK), non-root user, container-aware JVM flags.
-FROM eclipse-temurin:21.0.5_11-jre-alpine
+# JRE only (no JDK) on current Alpine, OS packages patched at build time,
+# non-root user, container-aware JVM flags.
+FROM eclipse-temurin:21-jre-alpine
 
-RUN apk add --no-cache tini \
+RUN apk upgrade --no-cache \
+ && apk add --no-cache tini \
  && addgroup -S app -g 10001 \
  && adduser -S app -u 10001 -G app
 
