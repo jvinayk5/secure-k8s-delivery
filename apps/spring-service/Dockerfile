@@ -8,6 +8,7 @@ RUN mvn -B -q dependency:go-offline
 COPY src ./src
 RUN mvn -B -q -DskipTests package
 
+# hadolint ignore=DL3006
 FROM ${BASE_IMAGE}
 COPY --from=build --chown=10001:10001 /src/target/spring-service-*.jar /app/app.jar
 ARG APP_VERSION=dev

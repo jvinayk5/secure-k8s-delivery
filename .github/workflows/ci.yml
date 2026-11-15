@@ -28,7 +28,7 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
-      - run: mvn -B verify
+      - run: mvn -B -ntp -Dmaven.wagon.http.retryHandler.count=5 verify
         working-directory: apps/spring-service
 
   dockerfile-lint:
@@ -51,12 +51,8 @@ jobs:
         run: |
           docker build -t node-base:ci images/node-base
           docker build -t node-service:ci --build-arg BASE_IMAGE=node-base:ci apps/node-service
-      - uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: node-service:ci
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: '1'
+      - name: Trivy scan
+        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.57.0 image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 node-service:ci
 
   helm-lint:
     runs-on: ubuntu-latest

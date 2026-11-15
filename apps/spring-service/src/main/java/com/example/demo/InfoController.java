@@ -9,10 +9,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class InfoController {
 
     @Value("${app.version:dev}")
-    private String version;
+    private String version = "dev";
 
     @Value("${app.environment:local}")
-    private String environment;
+    private String environment = "local";
 
     @GetMapping("/")
     public Map<String, String> info() {

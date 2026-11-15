@@ -6,7 +6,9 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
 
+# hadolint ignore=DL3006
 FROM ${BASE_IMAGE}
+WORKDIR /app
 COPY --from=deps --chown=10001:10001 /app/node_modules ./node_modules
 COPY --chown=10001:10001 package.json ./
 COPY --chown=10001:10001 src ./src
